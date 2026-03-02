@@ -1,0 +1,25 @@
+services:
+  medapp:
+    build: .
+    container_name: medication-trackerV2
+    ports:
+      # Option A: bind to localhost only (safer)
+      #- "127.0.0.1:${PORT:-7007}:7007"
+      # OR Option B: expose on all interfaces (comment the line above and uncomment this):
+       - "${PORT:-7009}:7009"
+    volumes:
+      - med_data:/data
+    restart: unless-stopped
+    environment:
+      - NTFY_TOPIC=${NTFY_TOPIC}
+      - NTFY_SERVER=${NTFY_SERVER:-https://ntfy.sh}
+      - DB_NAME=/data/medications.db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7007')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  med_data:
+    driver: local
