@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Medication Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <script src="/static/app.js" defer></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h1 { margin-bottom: 20px; color: #333; text-align: center; }
+
+    nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 15px;
+      background: #007bff;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
+
+    .btn-secondary { background: #6c757d; }
+    .btn-secondary:hover { background: #5a6268; }
+
+    .btn-success { background: #28a745; }
+    .btn-success:hover { background: #218838; }
+
+    .btn-danger { background: #dc3545; }
+    .btn-danger:hover { background: #c82333; }
+
+    .section { display: none; margin-top: 20px; }
+    .section.active { display: block; }
+
+    input, select {
+      padding: 8px;
+      margin: 5px 0;
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    label { display: block; margin: 5px 0; font-weight: 500; }
+
+    .med-list { margin-top: 15px; }
+
+    .med-item {
+      padding: 10px;
+      border: 1px solid #ddd;
+      margin: 5px 0;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .med-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .dose-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .dose-form {
+      padding: 8px;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      margin: 4px 0 8px 0;
+    }
+
+    .dose-form input { width: auto; margin-right: 6px; }
+
+    .script-item {
+      padding: 10px;
+      border: 1px solid #ddd;
+      margin: 5px 0;
+      border-radius: 4px;
+    }
+
+    .finished-script { opacity: 0.5; }
+
+    .low-stock { background: #fff3cd; }
+    .out-stock { background: #f8d7da; }
+
+    .alert-box { margin-top: 10px; }
+
+    #scanner { width: 100%; max-width: 500px; margin: 20px auto; }
+
+    @media (max-width: 600px) {
+      body { font-size: 18px; }
+      nav { flex-direction: column; }
+      .med-item { flex-direction: column; align-items: flex-start; }
+      .med-actions { flex-direction: row; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Medication Tracker</h1>
+
+    <nav>
+      <button onclick="showSection('addMed')">1. Add Medication</button>
+      <button onclick="showSection('addScript')">2. Add Prescription</button>
+      <button onclick="showSection('fill')">3. Fill Prescription</button>
+      <button onclick="showSection('adjust')">4. Adjust Usage</button>
+      <button onclick="showSection('alerts')">5. Stock &amp; Alerts</button>
+      <button onclick="showSection('deleteMed')" class="btn-danger">6. Delete Medication</button>
+      <button class="btn-secondary" onclick="saveAndExit()">Save &amp; Exit</button>
+    </nav>
+
+    <!-- Shared scanner -->
+    <div id="scanner"></div>
+
+    <!-- Section 2: Add Prescription -->
+    <div id="addScript" class="section">
+      <h2>Add Prescription</h2>
+      <button onclick="toggleScanner('script')" class="btn-secondary">Scan Barcode</button>
+      <button onclick="showManualScript()" class="btn-secondary">Manual Entry</button>
+
+      <div id="manualScriptForm" style="display:none; margin-top:15px;">
+        <label for="scriptMedId">Medication</label>
+        <select id="scriptMedId"></select>
+
+        <label for="scriptRepeats">Total repeats</label>
+        <input type="number" id="scriptRepeats" placeholder="e.g. 5">
+
+        <label for="scriptUnits">Amount per fill (units)</label>
+        <input type="number" id="scriptUnits" placeholder="e.g. 50">
+
+        <label for="scriptExpiry">Expiry date</label>
+        <input type="date" id="scriptExpiry">
+
+        <label for="scriptBarcode">Script barcode (optional)</label>
+        <input type="text" id="scriptBarcode" placeholder="Scan or type pharmacy barcode">
+
+        <button onclick="submitScript()" class="btn-success">Add Prescription</button>
+      </div>
+    </div>
+
+    <!-- Section 1: Add Medication -->
+    <div id="addMed" class="section">
+      <h2>Add Medication</h2>
+      <button onclick="toggleScanner('med')" class="btn-secondary">Scan Barcode</button>
+      <button onclick="showManualMed()" class="btn-secondary">Manual Entry</button>
+
+      <div id="manualMedForm" style="display:none; margin-top:15px;">
+        <label for="medName">Medication name</label>
+        <input type="text" id="medName" placeholder="e.g. Lyrica 75mg" required>
+
+        <label for="medBarcode">Barcode (optional)</label>
+        <input type="text" id="medBarcode" placeholder="Scan or type barcode">
+
+        <label for="medDailyDose">Daily dose (units per day)</label>
+        <input type="number" id="medDailyDose" placeholder="1" value="1">
+
+        <label for="medQty">Current quantity</label>
+        <input type="number" id="medQty" placeholder="0" value="0">
+
+        <label for="medAlert">Alert threshold</label>
+        <input type="number" id="medAlert" placeholder="e.g. 7">
+
+        <button onclick="submitMedication()" class="btn-success">Add Medication</button>
+      </div>
+    </div>
+    <!-- Section 6: Delete Medication -->
+    <div id="deleteMed" class="section">
+      <h2>Delete Medication</h2>
+      <p style="color:#666; font-size:0.9em; margin-bottom:10px;">
+        Deletes the medication and all associated prescriptions, dose times, and usage logs.
+      </p>
+      <div id="deleteMsg" style="padding:8px 12px; border-radius:4px; margin:8px 0; font-weight:bold;"></div>
+      <div id="deleteList"></div>
+    </div>
+
+<!-- Section 3: Fill Prescription -->
+<div id="fill" class="section">
+  <h2>Fill Prescription</h2>
+  <p style="color:#666; font-size:0.9em; margin-bottom:10px;">
+    Scripts sorted by earliest expiry. Filling uses 1 repeat and adds units to stock.
+  </p>
+  <div class="med-list" id="fillList"></div>
+</div>
+
+    <!-- Section 4: Adjust -->
+    <div id="adjust" class="section">
+      <h2>Adjust Usage</h2>
+
+      <div style="margin-bottom:10px; border:1px dashed #ccc; padding:8px;">
+        <strong>Test deduction time (temporary)</strong><br>
+        <input type="datetime-local" id="testNow" style="max-width:260px;">
+        <button onclick="runTestDeduction()" class="btn-secondary">Run at selected time</button>
+        <button onclick="runTestDeductionReal()" class="btn-secondary">Run at real now</button>
+      </div>
+
+      <div class="med-list" id="adjustList"></div>
+    </div>
+
+    <!-- Section 5: Alerts -->
+    <div id="alerts" class="section">
+      <h2>Alerts &amp; Inventory</h2>
+
+      <button onclick="checkAlerts()" class="btn-success">Check alerts</button>
+      <div id="alertMessages" class="alert-box"></div>
+
+      <h3 style="margin-top:15px;">Stock &amp; Scripts</h3>
+      <div class="med-list" id="alertList"></div>
+
+      <h3 style="margin-top:15px;">Prescriptions</h3>
+      <div id="scriptList"></div>
+    </div>
+
+  </div>
+</body>
+</html>
